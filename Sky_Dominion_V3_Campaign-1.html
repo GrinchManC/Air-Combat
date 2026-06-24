@@ -1,0 +1,165 @@
+
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Sky Dominion V3 Campaign</title>
+<style>
+body{margin:0;overflow:hidden;background:#87ceeb;font-family:Arial}
+#hud{position:absolute;left:10px;top:10px;color:#fff;background:rgba(0,0,0,.5);padding:8px}
+canvas{display:block}
+</style></head><body>
+<div id="hud"></div>
+<canvas id="g" width="1200" height="700"></canvas>
+<script>
+const missions=[
+"Border Patrol","Raiders","Escort Duty","Canyon Chase","Night Intercept",
+"Fortress Strike (Boss)","Counterattack","Naval Assault","Crimson Squadron (Boss)",
+"Homeland Defense","Thunder Run","Iron Reaper (Boss)","Final Eclipse (Final Boss)"
+];
+const c=document.getElementById('g'),ctx=c.getContext('2d');
+const keys={}; onkeydown=e=>keys[e.key]=1; onkeyup=e=>keys[e.key]=0;
+
+let mission=0,worldW=7000;
+let player,bullets,missiles,enemyBullets,enemies,camX=0;
+
+function enemyCount(m){ return 5+Math.min(m,7); }
+
+function startMission(){
+ player={x:300,y:350,a:0,hp:100,missiles:15};
+ bullets=[]; missiles=[]; enemyBullets=[]; enemies=[];
+ for(let i=0;i<enemyCount(mission);i++){
+   enemies.push({x:1500+i*350,y:100+Math.random()*500,hp:40,a:Math.PI,boss:false,cool:0});
+ }
+ if([5,8,11,12].includes(mission)){
+   enemies.push({x:6200,y:350,hp: mission===12?600:300,a:Math.PI,boss:true,cool:0});
+ }
+}
+startMission();
+
+function fireGun(){
+ bullets.push({x:player.x,y:player.y,vx:Math.cos(player.a)*12,vy:Math.sin(player.a)*12});
+}
+function fireMissile(){
+ if(player.missiles<1) return;
+ player.missiles--;
+ let target=enemies[0];
+ missiles.push({x:player.x,y:player.y,target});
+}
+setInterval(()=>{ if(keys[" "]) fireGun(); },120);
+document.addEventListener("keydown",e=>{ if(e.key==="m"||e.key==="M") fireMissile(); });
+
+function update(){
+ if(keys.ArrowLeft) player.a-=0.06;
+ if(keys.ArrowRight) player.a+=0.06;
+ if(keys.ArrowUp){ player.x+=Math.cos(player.a)*5; player.y+=Math.sin(player.a)*5; }
+ if(keys.ArrowDown){ player.x-=Math.cos(player.a)*3; player.y-=Math.sin(player.a)*3; }
+
+ camX=player.x-c.width/2;
+
+ bullets.forEach(b=>{b.x+=b.vx;b.y+=b.vy;});
+
+ missiles.forEach(m=>{
+  if(m.target){
+   let dx=m.target.x-m.x,dy=m.target.y-m.y,d=Math.hypot(dx,dy)||1;
+   m.x+=dx/d*8;m.y+=dy/d*8;
+  }
+ });
+
+ enemies.forEach(e=>{
+   let dx=player.x-e.x,dy=player.y-e.y,d=Math.hypot(dx,dy)||1;
+
+   // turn aircraft toward player
+   e.a=Math.atan2(dy,dx);
+
+   // chase player
+   let speed=e.boss?1.8:1.2;
+   e.x+=Math.cos(e.a)*speed;
+   e.y+=Math.sin(e.a)*speed;
+
+   e.cool--;
+   if(e.cool<=0){
+     enemyBullets.push({
+       x:e.x,y:e.y,
+       vx:Math.cos(e.a)*7,
+       vy:Math.sin(e.a)*7
+     });
+     e.cool=e.boss?15:55;
+   }
+ });
+
+ enemyBullets.forEach(b=>{b.x+=b.vx;b.y+=b.vy;});
+
+ bullets.forEach(b=>enemies.forEach(e=>{
+   if(Math.hypot(b.x-e.x,b.y-e.y)<20){e.hp-=10;b.dead=1;}
+ }));
+
+ missiles.forEach(m=>enemies.forEach(e=>{
+   if(Math.hypot(m.x-e.x,m.y-e.y)<30){e.hp-=60;m.dead=1;}
+ }));
+
+ enemyBullets.forEach(b=>{
+   if(Math.hypot(b.x-player.x,b.y-player.y)<18){player.hp-=1;b.dead=1;}
+ });
+
+ bullets=bullets.filter(x=>!x.dead);
+ missiles=missiles.filter(x=>!x.dead);
+ enemyBullets=enemyBullets.filter(x=>!x.dead);
+ enemies=enemies.filter(e=>e.hp>0);
+
+ if(enemies.length===0){
+   mission++;
+   if(mission>=missions.length){
+      alert("Campaign Complete! You defeated Eclipse and saved the nation.");
+      mission=missions.length-1;
+   } else {
+      alert("Mission Complete: "+missions[mission-1]+"\nNext: "+missions[mission]);
+      startMission();
+   }
+ }
+}
+
+function plane(x,y,a,color,size){
+ ctx.save();
+ ctx.translate(x-camX,y);
+ ctx.rotate(a);
+ ctx.fillStyle=color;
+ ctx.beginPath();
+ ctx.moveTo(size,0);
+ ctx.lineTo(-size,-size/2);
+ ctx.lineTo(-size,size/2);
+ ctx.fill();
+ ctx.restore();
+}
+
+function draw(){
+ update();
+ ctx.clearRect(0,0,c.width,c.height);
+
+ for(let x=0;x<worldW;x+=250){
+   ctx.fillStyle=(x/250)%2?"#7bc67b":"#8fd18f";
+   ctx.fillRect(x-camX,600,250,100);
+ }
+
+ plane(player.x,player.y,player.a,"white",18);
+ enemies.forEach(e=>plane(e.x,e.y,e.a,e.boss?"red":"black",e.boss?30:18));
+
+ ctx.fillStyle="yellow";
+ bullets.forEach(b=>ctx.fillRect(b.x-camX,b.y,4,4));
+
+ ctx.fillStyle="orange";
+ missiles.forEach(m=>ctx.fillRect(m.x-camX,m.y,8,8));
+
+ ctx.fillStyle="red";
+ enemyBullets.forEach(b=>ctx.fillRect(b.x-camX,b.y,4,4));
+
+ document.getElementById("hud").innerHTML =
+   "<b>Sky Dominion V3</b><br>"+
+   "Mission "+(mission+1)+"/13: "+missions[mission]+"<br>"+
+   "HP: "+Math.max(0,player.hp)+"%<br>"+
+   "Missiles: "+player.missiles+"<br>"+
+   "Enemies Remaining: "+enemies.length+"<br>"+
+   "Controls: Arrows / Space / M";
+
+ if(player.hp>0) requestAnimationFrame(draw);
+ else document.getElementById("hud").innerHTML += "<br><b>SHOT DOWN</b>";
+}
+draw();
+</script></body></html>

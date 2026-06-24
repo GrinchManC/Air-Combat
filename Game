@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sky Dominion V3 — Campaign (with Howler)</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:20px}
+    .controls{display:flex;gap:8px;align-items:center}
+    button{padding:8px 12px}
+  </style>
+</head>
+<body>
+  <h1>Sky Dominion V3 — Campaign (Howler.js demo)</h1>
+
+  <div class="controls">
+    <button id="playPauseBtn">Play Background</button>
+    <button id="soundToggleBtn">Game Sound On</button>
+    <label>Volume <input id="volume" type="range" min="0" max="1" step="0.01" value="0.5"></label>
+    <button id="sfxBtn">Play SFX</button>
+  </div>
+
+  <div class="controls" style="margin-top:16px;flex-wrap:wrap;">
+    <label style="flex:1;min-width:220px;">Game URL <input id="gameUrlInput" type="url" placeholder="https://example.com/game" style="width:100%;"></label>
+    <button id="openUrlBtn">Open Game</button>
+  </div>
+
+  <p>Note: mobile browsers require a user gesture to start audio — click anywhere if audio doesn't start.</p>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+  <script src="audio.js"></script>
+  <script>
+    // Example initialization using local audio assets
+    const audio = new AudioManager({
+      background: ['assets/background.wav'],
+      sfx: { blip: ['assets/blip.wav'] },
+      volume: 0.5
+    });
+
+    // Wire UI
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const soundToggleBtn = document.getElementById('soundToggleBtn');
+    const volume = document.getElementById('volume');
+    const sfxBtn = document.getElementById('sfxBtn');
+
+    playPauseBtn.addEventListener('click', () => {
+      if (audio.isPlaying()) { audio.pauseBackground(); playPauseBtn.textContent = 'Play Background'; }
+      else { audio.playBackground(); playPauseBtn.textContent = 'Pause Background'; }
+    });
+
+    soundToggleBtn.addEventListener('click', () => {
+      audio.toggleMute();
+      soundToggleBtn.textContent = audio.isMuted() ? 'Game Sound Off' : 'Game Sound On';
+    });
+
+    volume.addEventListener('input', (e) => audio.setVolume(parseFloat(e.target.value)));
+
+    sfxBtn.addEventListener('click', () => audio.playSFX('blip'));
+
+    const gameUrlInput = document.getElementById('gameUrlInput');
+    const openUrlBtn = document.getElementById('openUrlBtn');
+
+    openUrlBtn.addEventListener('click', () => {
+      const url = gameUrlInput.value.trim();
+      if (!url) {
+        alert('Please enter a game URL first.');
+        return;
+      }
+      try {
+        const parsed = new URL(url);
+        window.open(parsed.href, '_blank');
+      } catch (error) {
+        alert('Invalid URL. Please enter a full URL like https://example.com/game');
+      }
+    });
+
+    const params = new URLSearchParams(window.location.search);
+    const gameQuery = params.get('game');
+    if (gameQuery) {
+      gameUrlInput.value = gameQuery;
+      try {
+        const parsed = new URL(gameQuery);
+        window.open(parsed.href, '_blank');
+      } catch (error) {
+        console.warn('Invalid game query URL:', gameQuery);
+      }
+    }
+
+    // Ensure a user gesture will allow autoplay starting on mobile
+    document.addEventListener('click', function ensureAudio(){
+      if (!audio._autoplayAttempted) { audio._autoplayAttempted = true; audio.playBackground(); playPauseBtn.textContent = 'Pause Background'; }
+      document.removeEventListener('click', ensureAudio);
+    });
+  </script>
+</body>
+</html>
